@@ -37,6 +37,7 @@
 #include "depth_image_proc/visibility.h"
 #include "image_geometry/pinhole_camera_model.h"
 
+#include <image_proc/utils.hpp>
 #include <depth_image_proc/point_cloud_xyz.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <image_transport/image_transport.hpp>
@@ -63,7 +64,8 @@ PointCloudXyzNode::PointCloudXyzNode(const rclcpp::NodeOptions & options)
   std::lock_guard<std::mutex> lock(connect_mutex_);
   // TODO(ros2) Implement when SubscriberStatusCallback is available
   // pub_point_cloud_ = nh.advertise<PointCloud>("points", 1, connect_cb, connect_cb);
-  pub_point_cloud_ = create_publisher<PointCloud2>("points", rclcpp::SensorDataQoS());
+  // xf: pub_point_cloud_ = create_publisher<PointCloud2>("points", rclcpp::SensorDataQoS());
+  pub_point_cloud_ = create_publisher<PointCloud2>("points", rclcpp::SystemDefaultsQoS());
 }
 
 // Handles (un)subscribing when clients (un)subscribe
@@ -75,8 +77,11 @@ void PointCloudXyzNode::connectCb()
   if (0) {
     sub_depth_.shutdown();
   } else if (!sub_depth_) {
-    auto custom_qos = rmw_qos_profile_system_default;
-    custom_qos.depth = queue_size_;
+    // auto custom_qos = rmw_qos_profile_system_default;
+    auto node_base = this->get_node_base_interface();
+    std::string topic = node_base->resolve_topic_or_service_name("image_rect", false);
+    auto custom_qos = image_proc::getTopicQosProfile(this, topic);
+    custom_qos.depth = 5;
 
     sub_depth_ = image_transport::create_camera_subscription(
       this,
